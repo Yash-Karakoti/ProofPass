@@ -17,6 +17,7 @@ import {
   ShieldCheck
 } from "lucide-react";
 import { useState } from "react";
+import { useWallet } from "@demox-labs/aleo-wallet-adapter-react";
 
 type VerificationStatus = "idle" | "loading" | "valid" | "invalid" | "expired" | "used";
 
@@ -70,6 +71,33 @@ const VerifyProof = () => {
   const [proofId, setProofId] = useState("");
   const [result, setResult] = useState<VerificationResult>({ status: "idle", message: "" });
   const [isVerifying, setIsVerifying] = useState(false);
+  const { publicKey, connected, requestTransaction } = useWallet();
+
+  const handleRunTestnetDemo = async () => {
+    if (!connected || !publicKey) {
+      alert("Please connect your Aleo wallet first (top-right button).");
+      return;
+    }
+
+    try {
+      await requestTransaction({
+        address: publicKey,
+        chainId: "testnetbeta",
+        transitions: [
+          {
+            program: "token_registry.aleo",
+            functionName: "register_token",
+            inputs: ["123field", "1000u128"],
+          },
+        ],
+        fee: 100000,
+        feePrivate: false,
+      });
+    } catch (error) {
+      console.error("Testnet demo transaction failed:", error);
+      alert("Testnet demo transaction failed or was rejected. Check your wallet for details.");
+    }
+  };
 
   const handleVerify = async () => {
     setIsVerifying(true);

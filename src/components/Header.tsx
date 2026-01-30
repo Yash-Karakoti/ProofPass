@@ -1,8 +1,10 @@
-import { Shield, Menu, X } from "lucide-react";
+import { Shield, Menu, X, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
+import { useWallet } from "@demox-labs/aleo-wallet-adapter-react";
+import { useToast } from "@/hooks/use-toast";
 
 const navLinks = [
   { href: "/", label: "Home" },
@@ -65,9 +67,7 @@ export function Header() {
 
         {/* Desktop CTA */}
         <div className="hidden lg:flex items-center gap-3">
-          <Button variant="ghost" size="sm">
-            Sign In
-          </Button>
+          <WalletButton />
           <Button variant="hero" size="sm" asChild>
             <Link to="/create-credential">Get Started</Link>
           </Button>
@@ -143,9 +143,7 @@ export function Header() {
                 transition={{ delay: navLinks.length * 0.05 }}
                 className="flex gap-3 pt-4 mt-2 border-t border-border/30"
               >
-                <Button variant="ghost" className="flex-1">
-                  Sign In
-                </Button>
+                <WalletButton className="flex-1" />
                 <Button variant="hero" className="flex-1" asChild>
                   <Link to="/create-credential" onClick={() => setMobileMenuOpen(false)}>
                     Get Started
@@ -157,5 +155,118 @@ export function Header() {
         )}
       </AnimatePresence>
     </header>
+  );
+}
+
+function WalletButton({ className }: { className?: string }) {
+  const { connected, publicKey, connect, disconnect, connecting, wallet, wallets } = useWallet();
+  const { toast } = useToast();
+  const [isConnecting, setIsConnecting] = useState(false);
+
+  // Check if Leo Wallet extension is installed
+  const isLeoWalletInstalled = typeof window !== 'undefined' && !!(window as any).leoWallet;
+  
+  // Debug: log wallet adapter state
+  useEffect(() => {
+    if (isLeoWalletInstalled) {
+      console.log('Leo Wallet extension detected:', (window as any).leoWallet);
+      console.log('Available wallets from adapter:', wallets?.map(w => w.name));
+      console.log('Current wallet:', wallet?.name);
+    }
+  }, [wallets, wallet, isLeoWalletInstalled]);
+
+  const handleConnect = async () => {
+    // First check if extension is installed
+    if (!isLeoWalletInstalled) {
+      toast({
+        title: "Leo Wallet not found",
+        description: "Please install the Leo Wallet browser extension to connect.",
+        variant: "destructive",
+      });
+      window.open("https://www.leo.app/", "_blank");
+      return;
+    }
+
+    setIsConnecting(true);
+    try {
+      // Try using the adapter's connect method
+      if (connect) {
+        await connect();
+        toast({
+          title: "Wallet connected",
+          description: wallet ? `Connected to ${wallet.name}` : "Wallet connected successfully",
+        });
+      } else {
+        throw new Error("Connect function not available");
+      }
+    } catch (error: any) {
+      console.error("Failed to connect wallet:", error);
+      
+      // If adapter fails, try direct wallet API as fallback
+      if (isLeoWalletInstalled && (window as any).leoWallet) {
+        try {
+          const leoWallet = (window as any).leoWallet;
+          const response = await leoWallet.request({ method: 'connect' });
+          if (response) {
+            toast({
+              title: "Wallet connected",
+              description: "Connected via Leo Wallet extension",
+            });
+            // Force a page refresh to sync adapter state
+            window.location.reload();
+            return;
+          }
+        } catch (directError) {
+          console.error("Direct wallet connection also failed:", directError);
+        }
+      }
+      
+      toast({
+        title: "Connection failed",
+        description: error?.message || "Failed to connect wallet. Please check your Leo Wallet extension and try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsConnecting(false);
+    }
+  };
+
+  const handleDisconnect = async () => {
+    try {
+      await disconnect();
+      toast({
+        title: "Wallet disconnected",
+        description: "You have been disconnected from your wallet.",
+      });
+    } catch (error) {
+      console.error("Failed to disconnect wallet:", error);
+    }
+  };
+
+  if (connected && publicKey) {
+    return (
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={handleDisconnect}
+        className={className}
+      >
+        <Wallet className="w-4 h-4 mr-2" />
+        {publicKey.slice(0, 6)}...{publicKey.slice(-4)}
+      </Button>
+    );
+  }
+
+  return (
+    <Button
+      variant="ghost"
+      size="sm"
+      onClick={handleConnect}
+      disabled={connecting || isConnecting}
+      className={className}
+    >
+      <Wallet className="w-4 h-4 mr-2" />
+      {connecting || isConnecting ? "Connecting..." : "Connect Wallet"}
+    </Button>
   );
 }

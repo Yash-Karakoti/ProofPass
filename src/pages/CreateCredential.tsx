@@ -62,7 +62,7 @@ export default function CreateCredential() {
 
     setIsSubmitting(true);
     
-    // Mock submission delay
+    // Mock submission delay to simulate network/contract call
     await new Promise((resolve) => setTimeout(resolve, 1500));
     
     setIsSubmitting(false);
@@ -70,7 +70,7 @@ export default function CreateCredential() {
     
     toast({
       title: "Credential saved privately",
-      description: "Your credential has been stored securely.",
+      description: "Your credential has been stored securely (demo).",
     });
     
     // Redirect after showing success
