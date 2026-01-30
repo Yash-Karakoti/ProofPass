@@ -1,0 +1,6 @@
+{
+  "program": "proofpass_plus.aleo",
+  "version": "0.1.0",
+  "description": "ProofPass+ (Wave 1) credential + one-time proof skeleton",
+  "license": "MIT"
+}
